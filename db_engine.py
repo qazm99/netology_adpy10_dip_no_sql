@@ -1,4 +1,19 @@
 import psycopg2 as pg
+from settings import DATA_BASE
+
+
+def get_connection_db():
+    try:
+        connection_db = pg.connect(
+            dbname=DATA_BASE.get("dbname"),
+            user=DATA_BASE.get("user"),
+            password=DATA_BASE.get("password"),
+        )
+        return connection_db
+    except pg.DatabaseError:
+        print(
+            "Не удалось подключиться к базе данных, проверьте настроки в файле settings.py"
+        )
 
 
 def create_table(connection: pg.connect, table_name, *columns):  # создает таблицы
@@ -135,22 +150,13 @@ def get_likely_users(connection, target_id, users_vk_id, status=None):
         print("Нет связи с базой данных")
 
 
-def get_likely_users_of_target_id_vk(
-    connection: pg.connect,
-    table_name: str,
-    ids_vk: (list, tuple, set),
-    bd: bool = False,
-) -> list:
-    id_str = "id" if bd else "target_id_vk"
-    ids_vk_string = ", ".join(map(str, ids_vk))
-    with connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"select * from {table_name} where {id_str} in ({ids_vk_string})"
-            )
-            result_likely_users_vk = cursor.fetchall()
-            if result_likely_users_vk:
-                return result_likely_users_vk
+def get_likely_id_for_target_id_from_db(connection, target_id_vk) -> set:
+    users_in_bd = get_likely_users(connection, target_id_vk, 0)
+    if users_in_bd:
+        likely_users_id_in_bd = set(map(lambda user_db: user_db[2], users_in_bd))
+        return likely_users_id_in_bd
+    else:
+        return set()
 
 
 def spec_list(connection_db, target_id_vk, top_list, type_list: int) -> list:
@@ -185,16 +191,19 @@ def spec_list(connection_db, target_id_vk, top_list, type_list: int) -> list:
         else:
             print("Топ лист пуст")
 
+    spec_list_users = []
     spec_list_users_db = get_likely_users(connection_db, target_id_vk, 0, status=type_list)
     if spec_list_users_db:
         print(str_list.capitalize())
-        black_list_users = []
         for num, user_db in enumerate(spec_list_users_db, 1):
             from vkinder import LikelyUser
             temp_user = LikelyUser(0)
             temp_user.user_from_db(connection_db, user_db[1], user_db[2])
             current_likely_user = temp_user
             print(f"{num} {current_likely_user}")
-            black_list_users.append(current_likely_user)
+            spec_list_users.append(current_likely_user)
     else:
         print(f"Увы, {str_list} пуст")
+
+    if spec_list_users:
+        return spec_list_users

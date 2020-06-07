@@ -12,7 +12,7 @@ from db_engine import (
     insert_update_likely_users,
     create_db_struct_vkinder,
     drop_table,
-    get_likely_users, spec_list)
+    get_likely_users, spec_list, get_connection_db, get_likely_id_for_target_id_from_db)
 from qazm import posintput, StatusBar, list_from_string
 from settings import COUNT_IN_SEARCH, USER_FIX, DATA_BASE, VK_V, APPLICATION_ID
 from vkapi import (
@@ -232,6 +232,20 @@ def calc_common_param(in_list_first, in_list_second) -> int:
         if len(common_elements) > 0:
             return len(common_elements)
 
+# local вычисление рейтинга для каждого параметра
+def calc_points(common_count, dict_points):
+    if isinstance(common_count, int) and isinstance(dict_points, dict):
+        points = dict_points.get(common_count)
+        if not points:
+            if common_count == 0:
+                return 0
+            else:
+                return max(dict_points.values())
+        else:
+            return points
+    else:
+        return 0
+
 
 # db vk_api пытаемся по логину получить доступ к API VK
 def get_target_user_vkapi_of_login(
@@ -302,17 +316,8 @@ def get_target_user_vkapi_of_login(
         return target_user, vk_api
 
 
-def get_likely_id_for_target_id_from_db(connection, target_id_vk) -> set:
-    users_in_bd = get_likely_users(connection, target_id_vk, 0)
-    if users_in_bd:
-        likely_users_id_in_bd = set(map(lambda user_db: user_db[2], users_in_bd))
-        return likely_users_id_in_bd
-    else:
-        return set()
-
-
-# db vk_api
-def search_users_of_parametr(vk_api, search_p, current_target_user, likely_users_export):
+# vk_api
+def search_users_of_parametr(vk_api, search_p, current_target_user, likely_users_export=[]):
     likely_users = list()
     count_all_iteration = len(search_p.status) * (
             search_p.age_to - search_p.age_from + 1
@@ -388,22 +393,7 @@ def search_users_of_parametr(vk_api, search_p, current_target_user, likely_users
         return likely_users
 
 
-# local вычисление рейтинга для каждого параметра
-def calc_points(common_count, dict_points):
-    if isinstance(common_count, int) and isinstance(dict_points, dict):
-        points = dict_points.get(common_count)
-        if not points:
-            if common_count == 0:
-                return 0
-            else:
-                return max(dict_points.values())
-        else:
-            return points
-    else:
-        return 0
-
-
-# db vk_api поиск подходящих пользователей для текущего пользователя
+#vk_api поиск подходящих пользователей для текущего пользователя
 def find_users_for_user(vk_api, current_target_user, likely_users_export):
     sex_dict = {1: 2, 2: 1}
     count_search_max = COUNT_IN_SEARCH
@@ -426,7 +416,7 @@ def find_users_for_user(vk_api, current_target_user, likely_users_export):
     return all_likely_users
 
 
-# db vk_api
+# vk_api
 def calc_top_for_user(vk_api, current_target_user, find_users):
     if vk_api and True:
         # определяем топ 99 пользователей
@@ -459,7 +449,7 @@ def calc_top_for_user(vk_api, current_target_user, find_users):
         return top_99
 
 
-# db vk_api выгрузка в файл
+# vk_api выгрузка в файл
 def top_10_to_file_for_user(vk_api: vk.API, current_target_user: TargetUser, likely_users: list):
     dict_top10 = dict()
     current_top10 = likely_users[:10]
@@ -577,20 +567,6 @@ def update_param_target_users(target_user: TargetUser, vk_api):
             )
 
     return True
-
-
-def get_connection_db():
-    try:
-        connection_db = pg.connect(
-            dbname=DATA_BASE.get("dbname"),
-            user=DATA_BASE.get("user"),
-            password=DATA_BASE.get("password"),
-        )
-        return connection_db
-    except pg.DatabaseError:
-        print(
-            "Не удалось подключиться к базе данных, проверьте настроки в файле settings.py"
-        )
 
 
 # local

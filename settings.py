@@ -1,3 +1,4 @@
+from private.auth import login
 COUNT_IN_SEARCH = 1000  # количество пользователей в каждой выборке
 APPLICATION_ID = 7405095  # ID текущего приложения
 VK_V = "5.103"  # версия API VK

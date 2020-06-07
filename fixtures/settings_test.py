@@ -1,4 +1,4 @@
-from private.auth import pas
+from private.auth import pas, login
 
 COUNT_IN_SEARCH = 1000  # количество пользователей в каждой выборке
 USER_FIX = ""  # постоянный пользователь
